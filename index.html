@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Global News | Без VPN</title>
+    <style>
+        :root {
+            --primary-color: #2c3e50;
+            --accent-color: #3498db;
+            --bg-color: #f4f7f6;
+            --card-bg: #ffffff;
+            --text-color: #333333;
+            --text-muted: #7f8c8d;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+        }
+
+        header {
+            background-color: var(--primary-color);
+            color: white;
+            padding: 1rem 0;
+            text-align: center;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        header h1 {
+            margin: 0 0 10px 0;
+            font-size: 2rem;
+        }
+
+        /* Виджет переводчика */
+        #google_translate_element {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 10px;
+        }
+
+        /* Вкладки (Tabs) */
+        .tabs {
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 10px;
+            padding: 0 20px;
+        }
+
+        .tab-btn {
+            background-color: transparent;
+            color: white;
+            border: 2px solid transparent;
+            padding: 8px 16px;
+            font-size: 1rem;
+            cursor: pointer;
+            border-radius: 20px;
+            transition: all 0.3s ease;
+        }
+
+        .tab-btn:hover {
+            background-color: rgba(255,255,255,0.1);
+        }
+
+        .tab-btn.active {
+            border-color: var(--accent-color);
+            background-color: var(--accent-color);
+        }
+
+        /* Контейнер новостей */
+        .container {
+            max-width: 1200px;
+            margin: 30px auto;
+            padding: 0 20px;
+        }
+
+        #loader {
+            text-align: center;
+            font-size: 1.2rem;
+            color: var(--text-muted);
+            display: none;
+        }
+
+        .news-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 20px;
+        }
+
+        /* Плашка новости */
+        .news-card {
+            background-color: var(--card-bg);
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .news-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+
+        .news-date {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            margin-bottom: 10px;
+        }
+
+        .news-title {
+            font-size: 1.2rem;
+            margin: 0 0 10px 0;
+            line-height: 1.4;
+        }
+
+        .news-excerpt {
+            font-size: 0.95rem;
+            color: #555;
+            line-height: 1.5;
+            flex-grow: 1;
+            /* Ограничение текста в 4 строки */
+            display: -webkit-box;
+            -webkit-line-clamp: 4;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+            margin-bottom: 15px;
+        }
+
+        .news-link {
+            text-decoration: none;
+            color: var(--accent-color);
+            font-weight: bold;
+            font-size: 0.9rem;
+            align-self: flex-start;
+        }
+
+        .news-link:hover {
+            text-decoration: underline;
+        }
+
+        /* Скрытие лишних элементов переводчика от Google */
+        .goog-te-banner-frame { display: none !important; }
+        body { top: 0px !important; }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>Мировые Новости</h1>
+        <div id="google_translate_element"></div>
+        <div class="tabs">
+            <button class="tab-btn active" onclick="loadNews('world', this)">Топ 10 Мир</button>
+            <button class="tab-btn" onclick="loadNews('science', this)">Наука</button>
+            <button class="tab-btn" onclick="loadNews('politics', this)">Политика</button>
+            <button class="tab-btn" onclick="loadNews('economy', this)">Экономика</button>
+            <button class="tab-btn" onclick="loadNews('tech', this)">Технологии</button>
+        </div>
+    </header>
+
+    <div class="container">
+        <div id="loader">Загрузка новостей...</div>
+        <div id="news-grid" class="news-grid"></div>
+    </div>
+
+    <script type="text/javascript">
+        function googleTranslateElementInit() {
+            new google.translate.TranslateElement({
+                pageLanguage: 'en', 
+                includedLanguages: 'ru',
+                layout: google.translate.TranslateElement.InlineLayout.SIMPLE
+            }, 'google_translate_element');
+        }
+    </script>
+    <script type="text/javascript" src="https://translate.google.com/translate_a/element.js?cb=googleTranslateElementInit"></script>
+
+    <script>
+        // RSS ленты популярных зарубежных изданий (BBC, Yahoo, ScienceDaily)
+        const feeds = {
+            world: 'https://feeds.bbci.co.uk/news/world/rss.xml',
+            science: 'https://www.sciencedaily.com/rss/all.xml',
+            politics: 'https://feeds.bbci.co.uk/news/politics/rss.xml',
+            economy: 'https://feeds.bbci.co.uk/news/business/rss.xml',
+            tech: 'https://feeds.bbci.co.uk/news/technology/rss.xml'
+        };
+
+        // Используем api.rss2json.com как прокси, чтобы обходить блокировки в РФ и CORS
+        const proxyUrl = 'https://api.rss2json.com/v1/api.json?rss_url=';
+
+        // Функция загрузки новостей
+        async function loadNews(category, buttonElement) {
+            // Обновляем активную вкладку
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            if(buttonElement) buttonElement.classList.add('active');
+
+            const grid = document.getElementById('news-grid');
+            const loader = document.getElementById('loader');
+            
+            grid.innerHTML = '';
+            loader.style.display = 'block';
+
+            try {
+                // Делаем запрос к прокси-сервису
+                const response = await fetch(proxyUrl + encodeURIComponent(feeds[category]));
+                const data = await response.json();
+
+                if (data.status === 'ok') {
+                    // Берем только топ 10 новостей
+                    const top10 = data.items.slice(0, 10);
+                    renderNews(top10);
+                } else {
+                    grid.innerHTML = '<p>Не удалось загрузить новости. Попробуйте позже.</p>';
+                }
+            } catch (error) {
+                grid.innerHTML = '<p>Ошибка подключения. Проверьте доступ в интернет.</p>';
+                console.error(error);
+            } finally {
+                loader.style.display = 'none';
+            }
+        }
+
+        // Функция отрисовки карточек
+        function renderNews(articles) {
+            const grid = document.getElementById('news-grid');
+            
+            articles.forEach(article => {
+                // Форматируем дату
+                const pubDate = new Date(article.pubDate).toLocaleString('ru-RU', {
+                    day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit'
+                });
+
+                // Создаем карточку
+                const card = document.createElement('div');
+                card.className = 'news-card';
+
+                // Очищаем описание от лишних HTML тегов, если они есть в RSS
+                const tempDiv = document.createElement('div');
+                tempDiv.innerHTML = article.description;
+                const cleanExcerpt = tempDiv.textContent || tempDiv.innerText || '';
+
+                card.innerHTML = `
+                    <div class="news-date">${pubDate}</div>
+                    <h3 class="news-title">${article.title}</h3>
+                    <div class="news-excerpt">${cleanExcerpt}</div>
+                    <a href="${article.link}" target="_blank" class="news-link">Читать в оригинале</a>
+                `;
+                
+                grid.appendChild(card);
+            });
+        }
+
+        // Загружаем вкладку "Мир" по умолчанию при открытии страницы
+        window.onload = () => loadNews('world', document.querySelector('.tab-btn.active'));
+    </script>
+</body>
+</html>
