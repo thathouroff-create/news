@@ -3,33 +3,35 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="google" content="notranslate">
     <title>Global News</title>
+    
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
     <style>
-        /* CSS переменные для светлой темы по умолчанию */
         :root {
             --bg-color: #f4f7f6;
             --text-color: #333333;
             --text-muted: #7f8c8d;
             --card-bg: #ffffff;
-            --header-bg: #2c3e50;
+            --header-bg: #1a252f;
             --header-text: #ffffff;
             --accent-color: #3498db;
-            --accent-hover: #2980b9;
             --border-color: #e0e0e0;
+            --modal-bg: rgba(0, 0, 0, 0.5);
+            --chart-text: #333;
         }
 
-        /* Автоматическое переключение на темную тему */
         @media (prefers-color-scheme: dark) {
             :root {
                 --bg-color: #121212;
                 --text-color: #e0e0e0;
                 --text-muted: #95a5a6;
                 --card-bg: #1e1e1e;
-                --header-bg: #1a252f;
-                --header-text: #e0e0e0;
+                --header-bg: #121a21;
                 --accent-color: #4da8da;
-                --accent-hover: #3498db;
                 --border-color: #333333;
+                --chart-text: #e0e0e0;
             }
         }
 
@@ -39,21 +41,41 @@
             padding: 0;
             background-color: var(--bg-color);
             color: var(--text-color);
-            transition: background-color 0.3s, color 0.3s;
+            /* Жесткая блокировка сдвига страницы от Google Translate */
+            top: 0 !important;
+            position: relative !important;
         }
+
+        /* --- ПОЛНОЕ СКРЫТИЕ UI GOOGLE TRANSLATE --- */
+        .skiptranslate,
+        .goog-te-banner-frame,
+        .VIpgJd-ZVi9od-aZ2wEe-wOHMyf,
+        .VIpgJd-ZVi9od-aZ2wEe-wOHMyf-ti6hGc,
+        #goog-gt-tt {
+            display: none !important;
+            visibility: hidden !important;
+        }
+        .goog-text-highlight {
+            background-color: transparent !important;
+            box-shadow: none !important;
+        }
+        /* ------------------------------------------ */
 
         header {
             background-color: var(--header-bg);
             color: var(--header-text);
             padding: 1rem 0;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.2);
+            box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+            position: sticky;
+            top: 0;
+            z-index: 100;
         }
 
         .header-content {
             display: flex;
             flex-direction: column;
             align-items: center;
-            gap: 10px;
+            gap: 15px;
             margin-bottom: 15px;
             padding: 0 15px;
         }
@@ -67,37 +89,24 @@
             }
         }
 
-        header h1 {
-            margin: 0;
-            font-size: 1.8rem;
-        }
+        header h1 { margin: 0; font-size: 1.5rem; }
 
-        /* Блок курсов валют */
         .currency-block {
             display: flex;
             align-items: center;
             gap: 10px;
             background: rgba(255, 255, 255, 0.1);
-            padding: 5px 15px;
-            border-radius: 20px;
+            padding: 8px 15px;
+            border-radius: 8px;
             font-size: 0.9rem;
-        }
-
-        .refresh-btn {
-            background: none;
-            border: none;
-            color: var(--header-text);
             cursor: pointer;
-            font-size: 1.1rem;
-            padding: 0;
-            transition: transform 0.3s;
+            transition: background 0.2s;
         }
 
-        .refresh-btn:hover {
-            transform: rotate(180deg);
+        .currency-block:hover {
+            background: rgba(255, 255, 255, 0.2);
         }
 
-        /* Вкладки */
         .tabs {
             display: flex;
             justify-content: center;
@@ -109,96 +118,97 @@
         .tab-btn {
             background-color: transparent;
             color: var(--header-text);
-            border: 1px solid rgba(255,255,255,0.3);
-            padding: 8px 16px;
-            font-size: 0.95rem;
+            border: 1px solid rgba(255,255,255,0.2);
+            padding: 6px 14px;
+            font-size: 0.9rem;
             cursor: pointer;
             border-radius: 20px;
-            transition: all 0.2s ease;
-        }
-
-        .tab-btn:hover {
-            background-color: rgba(255,255,255,0.1);
         }
 
         .tab-btn.active {
             border-color: var(--accent-color);
             background-color: var(--accent-color);
-            color: #fff;
         }
 
-        /* Сетка новостей */
         .container {
             max-width: 1200px;
             margin: 20px auto;
             padding: 0 15px;
         }
 
-        #loader {
-            text-align: center;
-            font-size: 1.1rem;
-            color: var(--text-muted);
-            display: none;
-            margin-top: 20px;
-        }
+        #loader { text-align: center; display: none; padding: 20px; }
 
         .news-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
             gap: 20px;
         }
 
         .news-card {
             background-color: var(--card-bg);
             border: 1px solid var(--border-color);
-            border-radius: 8px;
+            border-radius: 12px;
             padding: 20px;
             display: flex;
             flex-direction: column;
-            transition: transform 0.2s;
         }
 
-        .news-date {
+        /* Стилизация главной новости (1-я в сетке) */
+        .news-card.top-story {
+            grid-column: 1 / -1;
+            border: 2px solid var(--accent-color);
+            background: linear-gradient(to bottom right, var(--card-bg), rgba(52, 152, 219, 0.05));
+        }
+
+        .top-story-badge {
+            display: inline-block;
+            background-color: var(--accent-color);
+            color: white;
+            padding: 4px 10px;
+            border-radius: 4px;
             font-size: 0.8rem;
-            color: var(--text-muted);
-            margin-bottom: 8px;
-        }
-
-        .news-title {
-            font-size: 1.15rem;
-            margin: 0 0 10px 0;
-            line-height: 1.3;
-        }
-
-        .news-excerpt {
-            font-size: 0.9rem;
-            color: var(--text-color);
-            line-height: 1.5;
-            flex-grow: 1;
-            display: -webkit-box;
-            -webkit-line-clamp: 4;
-            -webkit-box-orient: vertical;
-            overflow: hidden;
-            margin-bottom: 15px;
-            opacity: 0.9;
-        }
-
-        .news-link {
-            text-decoration: none;
-            color: var(--accent-color);
-            font-weight: 600;
-            font-size: 0.9rem;
+            font-weight: bold;
+            margin-bottom: 10px;
             align-self: flex-start;
         }
 
-        .news-link:hover {
-            color: var(--accent-hover);
+        .news-card.top-story .news-title {
+            font-size: 1.5rem;
         }
 
-        /* Скрытие оригинальных виджетов Google Translate */
-        #google_translate_element { display: none !important; }
-        .goog-te-banner-frame { display: none !important; }
-        body { top: 0px !important; }
+        .news-date { font-size: 0.8rem; color: var(--text-muted); margin-bottom: 8px; }
+        .news-title { font-size: 1.1rem; margin: 0 0 10px 0; line-height: 1.3; }
+        .news-excerpt { font-size: 0.95rem; line-height: 1.5; flex-grow: 1; margin-bottom: 15px; opacity: 0.9; }
+        .news-link { text-decoration: none; color: var(--accent-color); font-weight: bold; font-size: 0.9rem; align-self: flex-start; }
+
+        /* Модальное окно графика */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: var(--modal-bg);
+            z-index: 9999;
+            justify-content: center;
+            align-items: center;
+            backdrop-filter: blur(3px);
+        }
+        .modal-content {
+            background: var(--card-bg);
+            padding: 20px;
+            border-radius: 12px;
+            width: 90%;
+            max-width: 600px;
+            position: relative;
+        }
+        .close-modal {
+            position: absolute;
+            top: 15px; right: 20px;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: var(--text-muted);
+        }
+        canvas { max-width: 100%; }
+
     </style>
 </head>
 <body>
@@ -206,13 +216,12 @@
     <header>
         <div class="header-content">
             <h1>Мировые Новости</h1>
-            <div class="currency-block">
-                <span id="currency-rates">Загрузка курсов...</span>
-                <button onclick="fetchRates()" class="refresh-btn" title="Обновить курсы">🔄</button>
+            <div class="currency-block" onclick="openChartModal()" title="Нажмите, чтобы увидеть график">
+                <span id="currency-rates">Загрузка курсов... 📊</span>
             </div>
         </div>
         <div class="tabs">
-            <button class="tab-btn active" onclick="loadNews('world', this)">Топ 10 Мир</button>
+            <button class="tab-btn active" onclick="loadNews('world', this)">Главное</button>
             <button class="tab-btn" onclick="loadNews('science', this)">Наука</button>
             <button class="tab-btn" onclick="loadNews('politics', this)">Политика</button>
             <button class="tab-btn" onclick="loadNews('economy', this)">Экономика</button>
@@ -221,14 +230,21 @@
     </header>
 
     <div class="container">
-        <div id="loader">Загрузка новостей...</div>
+        <div id="loader">Сбор актуальных данных...</div>
         <div id="news-grid" class="news-grid"></div>
     </div>
 
-    <div id="google_translate_element"></div>
+    <div class="modal-overlay" id="chartModal" onclick="closeChartModal(event)">
+        <div class="modal-content" onclick="event.stopPropagation()">
+            <span class="close-modal" onclick="closeChartModal(event)">&times;</span>
+            <h3 style="margin-top:0;">Динамика курсов (7 дней)</h3>
+            <div id="chartLoader" style="text-align:center; padding: 20px;">Загрузка истории из ЦБ РФ...</div>
+            <canvas id="currencyChart" style="display:none;"></canvas>
+        </div>
+    </div>
 
+    <div id="google_translate_element" style="display:none;"></div>
     <script type="text/javascript">
-        // Принудительная установка cookies для автоперевода на русский
         document.cookie = "googtrans=/auto/ru; path=/; domain=" + document.domain;
         document.cookie = "googtrans=/auto/ru; path=/; domain=." + document.domain;
 
@@ -236,7 +252,6 @@
             new google.translate.TranslateElement({
                 pageLanguage: 'auto', 
                 includedLanguages: 'ru',
-                layout: google.translate.TranslateElement.InlineLayout.SIMPLE,
                 autoDisplay: false
             }, 'google_translate_element');
         }
@@ -244,7 +259,7 @@
     <script type="text/javascript" src="https://translate.google.com/translate_a/element.js?cb=googleTranslateElementInit"></script>
 
     <script>
-        // RSS ленты
+        // RSS ленты главных событий
         const feeds = {
             world: 'https://feeds.bbci.co.uk/news/world/rss.xml',
             science: 'https://www.sciencedaily.com/rss/all.xml',
@@ -255,24 +270,80 @@
 
         const proxyUrl = 'https://api.rss2json.com/v1/api.json?rss_url=';
 
-        // Получение курсов валют (через публичный API-прокси данных ЦБ РФ)
-        async function fetchRates() {
-            const ratesEl = document.getElementById('currency-rates');
-            ratesEl.textContent = 'Обновление...';
+        // 1. Логика Курсов Валют и Графика
+        let chartInstance = null;
+
+        async function fetchCurrentRates() {
             try {
-                const response = await fetch('https://www.cbr-xml-daily.ru/daily_json.js');
-                const data = await response.json();
-                const usd = data.Valute.USD.Value.toFixed(2);
-                const eur = data.Valute.EUR.Value.toFixed(2);
-                const cny = data.Valute.CNY.Value.toFixed(2);
-                ratesEl.textContent = `USD: ${usd} ₽ | EUR: ${eur} ₽ | CNY: ${cny} ₽`;
-            } catch (error) {
-                ratesEl.textContent = 'Ошибка загрузки курсов';
-                console.error('Ошибка API ЦБ:', error);
+                const res = await fetch('https://www.cbr-xml-daily.ru/daily_json.js');
+                const data = await res.json();
+                document.getElementById('currency-rates').textContent = 
+                    `USD: ${data.Valute.USD.Value.toFixed(2)} ₽ | EUR: ${data.Valute.EUR.Value.toFixed(2)} ₽ 📊`;
+            } catch (e) {
+                document.getElementById('currency-rates').textContent = 'Ошибка загрузки курсов';
             }
         }
 
-        // Загрузка новостей
+        async function openChartModal() {
+            document.getElementById('chartModal').style.display = 'flex';
+            if (chartInstance) return; // График уже загружен
+
+            const dates = [];
+            const usdData = [];
+            const eurData = [];
+            
+            let url = 'https://www.cbr-xml-daily.ru/daily_json.js';
+            
+            try {
+                // Идем по PreviousURL вглубь на 7 дней
+                for (let i = 0; i < 7; i++) {
+                    const res = await fetch(url);
+                    if (!res.ok) break;
+                    const data = await res.json();
+                    
+                    const dateObj = new Date(data.Date);
+                    dates.unshift(dateObj.toLocaleDateString('ru-RU', {day: '2-digit', month: '2-digit'}));
+                    usdData.unshift(data.Valute.USD.Value);
+                    eurData.unshift(data.Valute.EUR.Value);
+                    
+                    url = data.PreviousURL;
+                }
+
+                document.getElementById('chartLoader').style.display = 'none';
+                document.getElementById('currencyChart').style.display = 'block';
+
+                const ctx = document.getElementById('currencyChart').getContext('2d');
+                const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+                const textColor = isDark ? '#e0e0e0' : '#333';
+
+                chartInstance = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: dates,
+                        datasets: [
+                            { label: 'USD', data: usdData, borderColor: '#3498db', backgroundColor: 'transparent', tension: 0.2 },
+                            { label: 'EUR', data: eurData, borderColor: '#e74c3c', backgroundColor: 'transparent', tension: 0.2 }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        plugins: { legend: { labels: { color: textColor } } },
+                        scales: {
+                            x: { ticks: { color: textColor }, grid: { color: 'rgba(128,128,128,0.2)' } },
+                            y: { ticks: { color: textColor }, grid: { color: 'rgba(128,128,128,0.2)' } }
+                        }
+                    }
+                });
+            } catch (e) {
+                document.getElementById('chartLoader').textContent = 'Не удалось загрузить историю курсов.';
+            }
+        }
+
+        function closeChartModal(e) {
+            document.getElementById('chartModal').style.display = 'none';
+        }
+
+        // 2. Логика загрузки и вывода новостей
         async function loadNews(category, buttonElement) {
             document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
             if(buttonElement) buttonElement.classList.add('active');
@@ -288,24 +359,20 @@
                 const data = await response.json();
 
                 if (data.status === 'ok') {
-                    const top10 = data.items.slice(0, 10);
-                    renderNews(top10);
-                } else {
-                    grid.innerHTML = '<p>Не удалось загрузить новости. Попробуйте позже.</p>';
+                    // Парсинг 10 главных новостей
+                    renderNews(data.items.slice(0, 10));
                 }
             } catch (error) {
-                grid.innerHTML = '<p>Ошибка подключения. Проверьте доступ в интернет.</p>';
-                console.error('Ошибка загрузки RSS:', error);
+                grid.innerHTML = '<p style="padding:20px;">Ошибка подключения. Проверьте сеть.</p>';
             } finally {
                 loader.style.display = 'none';
             }
         }
 
-        // Отрисовка
         function renderNews(articles) {
             const grid = document.getElementById('news-grid');
             
-            articles.forEach(article => {
+            articles.forEach((article, index) => {
                 const pubDate = new Date(article.pubDate).toLocaleString('ru-RU', {
                     day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit'
                 });
@@ -315,21 +382,26 @@
                 const cleanExcerpt = tempDiv.textContent || tempDiv.innerText || '';
 
                 const card = document.createElement('div');
-                card.className = 'news-card';
+                // Назначаем первой новости (самой популярной в RSS) спец. класс
+                card.className = index === 0 ? 'news-card top-story' : 'news-card';
+                
+                let badge = index === 0 ? '<div class="top-story-badge" translate="no">🔥 Главное за сутки</div>' : '';
+
                 card.innerHTML = `
+                    ${badge}
                     <div class="news-date" translate="no">${pubDate}</div>
                     <h3 class="news-title">${article.title}</h3>
                     <div class="news-excerpt">${cleanExcerpt}</div>
-                    <a href="${article.link}" target="_blank" class="news-link">Читать в оригинале</a>
+                    <a href="${article.link}" target="_blank" class="news-link" translate="no">Читать в оригинале</a>
                 `;
                 
                 grid.appendChild(card);
             });
         }
 
-        // Инициализация при старте
+        // Запуск
         window.onload = () => {
-            fetchRates();
+            fetchCurrentRates();
             loadNews('world', document.querySelector('.tab-btn.active'));
         };
     </script>
